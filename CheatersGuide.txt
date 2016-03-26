@@ -1,0 +1,159 @@
+Cheater's Guide to Compiling with NuPIC's C++ Code (Without Python)
+
+I wanted to explore the bowels of the NuPIC code (because that's the kind of guy I am) and was not initially interested in the research code. My main interest is the fundamental mechanisms behind NuPIC's Cortical Learning Algorithms and the Hierarchical Temporal Memory. Most of the high-level code seems to be written in Python, while the core code is available in C++.
+
+After browsing local .zip files of several github repositories, I realized that separating the C++ build from the Python and interface files might be problematic. My preferred development machine is an AMD64 box not connected to the net. My local version of many of the NuPIC required packages often seem to be a version or two behind, but those deficiencies also seemed to be related to Python tools not strictly needed for C++ development.
+
+I decided to cheat (I would have been accused of it anyway) and attempted to compile the HelloSP_TP.cpp file with the scattered remains of the git repositories I'd hacked at all evening. After browsing through the cmake files it occurred to me that there was an outside chance that something simpler might work for me there, too. I had already discovered that the nupic-linux64-master had a little Python-style virtual env in it that would be useful for isolating the /bin and /lib directory hacks, so I unzipped the github nupic-linux64-master in my home directory.
+
+There's an environment variable used in the NuPIC documents that's not required, but it is handy. Assuming you unzipped in your own home directory and are using bash:
+
+export NUPIC_CORE=~/nupic-linux64-master
+
+or wherever you unzipped the github repository.
+
+Get a copy of the bindings wheel file. Perhaps "wget https://s3-us-west-2.amazonaws.com/artifacts.numenta.org/numenta/nupic.core/releases/nupic.bindings/nupic.bindings-0.4.0-cp27-none-linux_x86_64.whl" will work for you. You can open it in a tmp directory with Archive Manager. Inside that, in the nupic/bindings/ directory, are the shared library files named _algorithms.so and _engine_internal.so. Those are the only files you want from the wheel. Put them in the $NUPIC_CORE/nupic-linux64-master/lib/ directory.
+
+Download a copy of the nupic.core-master.zip from that github repository. Unzip it in a tmp directory somewhere and move the src/ subdirectory from it into your $NUPIC_CORE/nupic-linux64-master directory. Get into the src/nupic/proto/ directory. That's where the capnp protobuf files with a .capnp extension can be found. You need to make the headers which will be included in the example Hello file later.
+
+Got to Cap'n Proto's site and get capnproto-c++-0.5.3.tar.gz, if you haven't got capnproto installed on your machine. It's a simple configure, make, make install. Then generate the .h and .c++ files from the src/nupic/proto/ contents:
+
+capnp compile -oc++ --import-path=$NUPIC_CORE/src BitHistory.capnp
+capnp compile -oc++ --import-path=$NUPIC_CORE/src ClaClassifier.capnp
+capnp compile -oc++ --import-path=$NUPIC_CORE/src ConnectionsProto.capnp
+capnp compile -oc++ --import-path=$NUPIC_CORE/src LinkProto.capnp
+capnp compile -oc++ --import-path=$NUPIC_CORE/src Map.capnp
+capnp compile -oc++ --import-path=$NUPIC_CORE/src NetworkProto.capnp
+capnp compile -oc++ --import-path=$NUPIC_CORE/src PyRegionProto.capnp
+capnp compile -oc++ --import-path=$NUPIC_CORE/src RandomProto.capnp
+capnp compile -oc++ --import-path=$NUPIC_CORE/src RegionProto.capnp
+capnp compile -oc++ --import-path=$NUPIC_CORE/src SparseBinaryMatrixProto.capnp
+capnp compile -oc++ --import-path=$NUPIC_CORE/src SparseMatrixProto.capnp
+capnp compile -oc++ --import-path=$NUPIC_CORE/src SpatialPoolerProto.capnp
+capnp compile -oc++ --import-path=$NUPIC_CORE/src TemporalMemoryProto.capnp
+capnp compile -oc++ --import-path=$NUPIC_CORE/src TemporalMemoryV1.capnp
+capnp compile -oc++ --import-path=$NUPIC_CORE/src TestNodeProto.capnp
+capnp compile -oc++ --import-path=$NUPIC_CORE/src VectorFileSensorProto.capnp
+
+Now, with those header files in place, you should be able to compile the HelloSP_TP.cpp file in $NUPIC_CORE/src/examples/algorithms/ with:
+
+g++ -std=gnu++11 -I $NUPIC_CORE/src -c HelloSP_TP.cpp
+
+So, now (you've got the .so files in the $NUPIC_CORE/lib directory, right?) link it.
+
+g++ -std=gnu++11 -o HelloSP_TP HelloSP_TP.o  $NUPIC_CORE/lib/_algorithms.so  $NUPIC_CORE/lib/_engine_internal.so
+
+I find it convenient to run this in the Python virtual env. This allows the usual command line invocation of the program to find the shared libraries locally. This is obviously not the only solution, but I will be messing with the libraries at some point as well, so I prefer to keep them local.
+
+Enter the virtual env:
+
+source $NUPIC_CORE/bin/activate
+
+Which causes printing of your local variation of the following:
+
+NuPIC environment
+=================
+BUILDDIR=/tmp/ntabuild
+LD_LIBRARY_PATH=/home/pluto/nupic-linux64-master/lib:
+MK_JOBS=
+NUPIC=
+NTA=/home/pluto/nupic-linux64-master/nta/eng
+NTA_DATA_PATH=/home/pluto/nupic-linux64-master/nta/eng/share/prediction/data:
+PATH=/home/pluto/nupic-linux64-master/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:/usr/X11R6/bin
+PYTHONPATH=/home/pluto/nupic-linux64-master/lib/python2.7/site-packages::/home/pluto/nupic-linux64-master/nta/eng/lib/python2.7/site-packages
+
+To exit this env run: deactivate_nupic
+
+=================
+And, run it:
+
+./HelloSP_TP
+
+(It takes half a minute or so to run, then prints)
+
+Epoch = 9999
+SP=2048 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+
+...
+
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+Total elapsed time = 25.3935 seconds
+
+Exit from the env shell:
+
+deactivate_nupic
+
+.................
+You can compile the HelloRegions example in the same way. Open a terminal in the examples/regions directory. Make sure you'v set $NUPIC_CORE:
+
+export NUPIC_CORE=~/nupic-linux64-master
+
+Compile the source file:
+
+g++ -std=gnu++11 -I $NUPIC_CORE/src -c HelloRegions.cpp
+
+Link it to the local shared libraries:
+
+g++ -std=gnu++11 -o HelloRegions HelloRegions.o  $NUPIC_CORE/lib/_algorithms.so  $NUPIC_CORE/lib/_engine_internal.so
+
+Activate the venv:
+
+source $NUPIC_CORE/bin/activate
+
+Run the example:
+
+./HelloRegions
+
+Which prints its output to the console:
+
+Setting region dimensions[1]
+Loading data from /home/pluto/nupic-linux64-master/src/examples/regions/../../../src/examples/regions/Data.csv
+In VectorFileSensor /home/pluto/nupic-linux64-master/src/examples/regions/../../../src/examples/regions/Data.csv
+INFO:   appendFile - need to reset scale and offset vectors.
+Read 4 vectors
+Initializing network
+Compute
+  0    6.90922e-310
+In VectorFileSensor /home/pluto/nupic-linux64-master/src/examples/regions/../../../src/examples/regions/Data.csv
+INFO:   appendFile - need to reset scale and offset vectors.
+Read 4 vectors
+  0    6.90927e-310   6.90922e-310
+
+
+.................
+And, of course, the tests (Methinks he doeth prototest too much):
+
+g++ -std=gnu++11 -I $NUPIC_CORE/src -o prototest prototest.cpp  $NUPIC_CORE/lib/_algorithms.so  $NUPIC_CORE/lib/_engine_internal.so
+
+./prototest
+Stream time: 0.000553295
+Manual time: 0.000223341
+Time for iostream capnp: 0.068
+Time for old method: 0.07
+
+.................
+
+So, there's a lot more going on here, and a lot of code to explore. I've omitted several awkward details in hopes of appearing heroically clever, but this is essentially how I got started with the NuPIC C++ code.
+
+There are many ways to improve on what I've just described. Put it in a shell script, remove the chaff from the unzipped directory from Numenta, use a better directory tree altogether, write it into a simple makefile, etc. I think this procedure is particularly clear and minimal. Since I thrashed a bit sorting through the Python, I wanted to provide this as a simple point of departure.
+
+Enjoy.
+
+............
+Post script:
+
+The three files you'll need:
+
+nupic-linux64-master.zip
+	from github
+
+nupic.bindings-0.4.0-cp27-none-linux_x86_64.whl
+	wget https://s3-us-west-2.amazonaws.com/artifacts.numenta.org/numenta/nupic.core/releases/nupic.bindings/nupic.bindings-0.4.0-cp27-none-linux_x86_64.whl
+
+capnproto-c++-0.5.3.tar.gz
+	The Cap'n Proto site (Google is your friend)
+
+
+I think any recent Linux should work, but my specific system is openSuse 15.10 running on an Asus AMD64 quadcore motherboard. The gcc compiler in the Suse distro is 4.8.3, which I have not changed.
+
+
